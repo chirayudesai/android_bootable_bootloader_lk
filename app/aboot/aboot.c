@@ -95,6 +95,7 @@ static const char *battchg_pause = " androidboot.mode=charger";
 static const char *auth_kernel = " androidboot.authorized_kernel=true";
 static const char *bl_cmdline = " androidboot.bootloader=lk";
 static const char *hw_cmdline = " androidboot.hardware=qcom";
+static const char *version_cmdline = " androidboot.lkversion=20130220"; // Bump this only when needed
 
 static const char *baseband_apq     = " androidboot.baseband=apq";
 static const char *baseband_msm     = " androidboot.baseband=msm";
@@ -167,6 +168,8 @@ unsigned char *update_cmdline(const char * cmdline)
 
         cmdline_len +=strlen(bl_cmdline);
         cmdline_len +=strlen(hw_cmdline);
+
+        cmdline_len +=strlen(version_cmdline);
 
 	if (target_pause_for_battery_charge()) {
 		pause_at_bootup = 1;
@@ -245,6 +248,10 @@ unsigned char *update_cmdline(const char * cmdline)
 		have_cmdline = 1;
 		while ((*dst++ = *src++));
 		src = hw_cmdline;
+		if (have_cmdline) --dst;
+		have_cmdline = 1;
+		while ((*dst++ = *src++));
+		src = version_cmdline;
 		if (have_cmdline) --dst;
 		have_cmdline = 1;
 		while ((*dst++ = *src++));
