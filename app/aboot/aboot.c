@@ -1668,6 +1668,13 @@ void cmd_reboot_bootloader(const char *arg, void *data, unsigned sz)
 	reboot_device(FASTBOOT_MODE);
 }
 
+void cmd_reboot_recovery(const char *arg, void *data, unsigned sz)
+{
+	dprintf(INFO, "rebooting the device\n");
+	fastboot_okay("");
+	reboot_device(RECOVERY_MODE);
+}
+
 void cmd_oem_unlock(const char *arg, void *data, unsigned sz)
 {
 	if(!device.is_unlocked)
@@ -1863,6 +1870,7 @@ fastboot:
 	fastboot_register("continue", cmd_continue);
 	fastboot_register("reboot", cmd_reboot);
 	fastboot_register("reboot-bootloader", cmd_reboot_bootloader);
+	fastboot_register("reboot-recovery", cmd_reboot_recovery);
 	fastboot_register("oem unlock", cmd_oem_unlock);
 	fastboot_register("oem device-info", cmd_oem_devinfo);
 	fastboot_publish("product", TARGET(BOARD));
