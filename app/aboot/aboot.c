@@ -106,6 +106,9 @@ static const char *baseband_sglte   = " androidboot.baseband=sglte";
 static const char *baseband_dsda    = " androidboot.baseband=dsda";
 static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 
+unsigned boot_into_sboot = 0;
+unsigned boot_into_srecovery = 0;
+
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
 
@@ -589,22 +592,36 @@ int boot_linux_from_mmc(void)
 		hdr = uhdr;
 		goto unified_boot;
 	}
-	if (!boot_into_recovery) {
+	if (!boot_into_recovery && !boot_into_sboot && !boot_into_srecovery) {
 		index = partition_get_index("Android");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
 			dprintf(CRITICAL, "ERROR: No boot partition found\n");
                     return -1;
 		}
-	}
-	else {
+	}else if(boot_into_recovery){
 		index = partition_get_index("FOTAKernel");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
 			dprintf(CRITICAL, "ERROR: No recovery partition found\n");
                     return -1;
 		}
+	}else if(boot_into_sboot){
+		index = partition_get_index("sboot");
+		ptn = partition_get_offset(index);
+		if(ptn == 0) {
+			dprintf(CRITICAL, "ERROR: No secondary boot partition found\n");
+			return -1;
+		}
+	}else{
+		index = partition_get_index("srecovery");
+		ptn = partition_get_offset(index);
+		if(ptn == 0) {
+			dprintf(CRITICAL, "ERROR: No secondary recovery partition found\n");
+			return -1;
+		}
 	}
+		
 
 	if (mmc_read(ptn + offset, (unsigned int *) buf, page_size)) {
 		dprintf(CRITICAL, "ERROR: Cannot read boot image header\n");
@@ -1399,7 +1416,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 			return;
 		}
 
-		if (!strcmp(arg, "Android") || !strcmp(arg, "FOTAKernel") || !strcmp(arg, "Kernel")) {
+		if (!strcmp(arg, "Android") || !strcmp(arg, "FOTAKernel") || !strcmp(arg, "Kernel") || !strcmp(arg, "sboot") || !strcmp(arg, "srecovery")) {
 			if ((memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE)) && (memcmp((void *)data, ELF_MAGIC, ELF_MAGIC_SIZE))) {
 				fastboot_fail("image is not a boot image or sony elf");
 				return;
@@ -1761,6 +1778,19 @@ void aboot_init(const struct app_descriptor *app)
 				boot_into_recovery = 1;
 				break;
 			}
+			
+			if ((get_keystate(0) != 0) && (get_keystate(1) == 0))
+			{
+				boot_into_sboot = 1;
+				break;
+			}
+			
+			if (get_keystate(1) != 0)
+			{
+				boot_into_srecovery = 1;
+				break;
+			}
+			
 			if (get_keystate(19) != 0)
 				goto fastboot;
 		}
