@@ -106,8 +106,8 @@ static const char *baseband_sglte   = " androidboot.baseband=sglte";
 static const char *baseband_dsda    = " androidboot.baseband=dsda";
 static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 
-unsigned boot_into_sboot = 0;
-unsigned boot_into_srecovery = 0;
+unsigned boot_into_Android2 = 0;
+unsigned boot_into_recovery2 = 0;
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -592,48 +592,47 @@ int boot_linux_from_mmc(void)
 		hdr = uhdr;
 		goto unified_boot;
 	}
-	if (!boot_into_recovery && !boot_into_sboot && !boot_into_srecovery) {
+	if (!boot_into_recovery && !boot_into_Android2 && !boot_into_recovery2) {
 		index = partition_get_index("Android");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No boot partition found\n");
-                    return -1;
+			dprintf(CRITICAL, "ERROR: Boot partition (Android) not found\n");
+			return -1;
 		}
 	}else if(boot_into_recovery){
 		index = partition_get_index("FOTAKernel");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No recovery partition found\n");
-                    return -1;
+			dprintf(CRITICAL, "ERROR: Recovery partition (FOTAKernel) not found\n");
+			return -1;
 		}
-	}else if(boot_into_sboot){
-		index = partition_get_index("sboot");
+	}else if(boot_into_Android2){
+		index = partition_get_index("Android2");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No secondary boot partition found\n");
+			dprintf(CRITICAL, "ERROR: Secondary Boot partition (Android2) not found\n");
 			return -1;
 		}
 	}else{
-		index = partition_get_index("srecovery");
+		index = partition_get_index("recovery2");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No secondary recovery partition found\n");
+			dprintf(CRITICAL, "ERROR: Secondary recovery partition (recovery2) not found\n");
 			return -1;
 		}
 	}
-		
 
 	if (mmc_read(ptn + offset, (unsigned int *) buf, page_size)) {
 		dprintf(CRITICAL, "ERROR: Cannot read boot image header\n");
-                return -1;
+		return -1;
 	}
 
-        if (!memcmp(hdr->magic, ELF_MAGIC, ELF_MAGIC_SIZE))
-        	boot_elf(ptn);
+	if (!memcmp(hdr->magic, ELF_MAGIC, ELF_MAGIC_SIZE))
+		boot_elf(ptn);
 
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
-                return -1;
+			return -1;
 	}
 
 	if (hdr->page_size && (hdr->page_size != page_size)) {
@@ -867,20 +866,20 @@ int boot_linux_from_flash(void)
 
 	if(!boot_into_recovery)
 	{
-	        ptn = ptable_find(ptable, "Android");
+		ptn = ptable_find(ptable, "Android");
 
-	        if (ptn == NULL) {
-		        dprintf(CRITICAL, "ERROR: No boot partition found\n");
-		        return -1;
-	        }
+		if (ptn == NULL) {
+			dprintf(CRITICAL, "ERROR: No boot partition found\n");
+			return -1;
+		}
 	}
 	else
 	{
-	        ptn = ptable_find(ptable, "FOTAKernel");
-	        if (ptn == NULL) {
-		        dprintf(CRITICAL, "ERROR: No recovery partition found\n");
-		        return -1;
-	        }
+		ptn = ptable_find(ptable, "FOTAKernel");
+		if (ptn == NULL) {
+			dprintf(CRITICAL, "ERROR: No recovery partition found\n");
+			return -1;
+		}
 	}
 
 	if (flash_read(ptn, offset, buf, page_size)) {
@@ -1396,17 +1395,19 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 	}
 	else
 	{
-        	if(!strcmp(arg, "boot"))
-            		arg = "Android";
-        	if(!strcmp(arg, "recovery"))
-            		arg = "FOTAKernel";
-        	if(!strcmp(arg, "bootloader"))
-            		arg = "Kernel";
+		if(!strcmp(arg, "boot"))
+				arg = "Android";
+		if(!strcmp(arg, "recovery"))
+				arg = "FOTAKernel";
+		if(!strcmp(arg, "boot2"))
+				arg = "Android2";
+		if(!strcmp(arg, "bootloader"))
+				arg = "Kernel";
 
-        	if(!strcmp(arg, "Boot")||!strcmp(arg, "Boot2")||!strcmp(arg, "TA")||!strcmp(arg, "TZ"))
-        	{
-        		fastboot_fail("Partition protected for device safety");
-                	return;
+		if(!strcmp(arg, "Boot")||!strcmp(arg, "Boot2")||!strcmp(arg, "TA")||!strcmp(arg, "TZ"))
+		{
+			fastboot_fail("Partition protected for device safety");
+			return;
 		}
 
 		index = partition_get_index(arg);
@@ -1416,7 +1417,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 			return;
 		}
 
-		if (!strcmp(arg, "Android") || !strcmp(arg, "FOTAKernel") || !strcmp(arg, "Kernel") || !strcmp(arg, "sboot") || !strcmp(arg, "srecovery")) {
+		if (!strcmp(arg, "Android") || !strcmp(arg, "FOTAKernel") || !strcmp(arg, "Kernel") || !strcmp(arg, "Android2") || !strcmp(arg, "recovery2")) {
 			if ((memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE)) && (memcmp((void *)data, ELF_MAGIC, ELF_MAGIC_SIZE))) {
 				fastboot_fail("image is not a boot image or sony elf");
 				return;
@@ -1788,13 +1789,13 @@ void aboot_init(const struct app_descriptor *app)
 			
 			if ((get_keystate(0) != 0) && (get_keystate(1) == 0))
 			{
-				boot_into_sboot = 1;
+				boot_into_Android2 = 1;
 				break;
 			}
 			
 			if (get_keystate(1) != 0)
 			{
-				boot_into_srecovery = 1;
+				boot_into_recovery2 = 1;
 				break;
 			}
 			
