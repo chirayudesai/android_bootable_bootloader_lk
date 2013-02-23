@@ -95,7 +95,7 @@ static const char *battchg_pause = " androidboot.mode=charger";
 static const char *auth_kernel = " androidboot.authorized_kernel=true";
 static const char *bl_cmdline = " androidboot.bootloader=lk";
 static const char *hw_cmdline = " androidboot.hardware=qcom";
-static const char *version_cmdline = " androidboot.lkversion=20130220"; // Bump this only when needed
+static const char *version_cmdline = " androidboot.lkversion=20130223"; // Bump this only when needed
 
 static const char *baseband_apq     = " androidboot.baseband=apq";
 static const char *baseband_msm     = " androidboot.baseband=msm";
