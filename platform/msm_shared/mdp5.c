@@ -111,19 +111,22 @@ int mdp_dsi_video_config(struct msm_panel_info *pinfo,
 	/* write active region size*/
 	mdp_rgb_size = (fb->height << 16) + fb->width;
 
-	/* Ping-Pong done Tear Check Read/Write  */
-	/* Underrun(Interface 0/1/2/3) VSYNC Interrupt Enable  */
-	writel(0xFF777713, MDP_INTR_EN);
-
 	access_secure = restore_secure_cfg(SECURE_DEVICE_MDSS);
 
 	mdp_clk_gating_ctrl();
 
-	if (!access_secure) {
+	/* Ignore TZ return value till it's fixed */
+	if (!access_secure || 1) {
 		/* Force VBIF Clocks on  */
 		writel(0x1, VBIF_VBIF_DDR_FORCE_CLK_ON);
 		/* Configure DDR burst length */
 		writel(0x00000707, VBIF_VBIF_DDR_OUT_MAX_BURST);
+		writel(0x00000030, VBIF_VBIF_DDR_ARB_CTRL );
+		writel(0x00000001, VBIF_VBIF_DDR_RND_RBN_QOS_ARB);
+		writel(0x00000FFF, VBIF_VBIF_DDR_OUT_AOOO_AXI_EN);
+		writel(0x0FFF0FFF, VBIF_VBIF_DDR_OUT_AX_AOOO);
+		writel(0x22222222, VBIF_VBIF_DDR_AXI_AMEMTYPE_CONF0);
+		writel(0x00002222, VBIF_VBIF_DDR_AXI_AMEMTYPE_CONF1);
 	}
 
 	/* Allocate SMP blocks */
@@ -211,8 +214,9 @@ int mdp_dsi_video_off()
 		/* Ping-Pong done Tear Check Read/Write  */
 		/* Underrun(Interface 0/1/2/3) VSYNC Interrupt Enable  */
 		writel(0xFF777713, MDP_INTR_CLEAR);
-		writel(0x00000000, MDP_INTR_EN);
 	}
+
+	writel(0x00000000, MDP_INTR_EN);
 
 	return NO_ERROR;
 }
