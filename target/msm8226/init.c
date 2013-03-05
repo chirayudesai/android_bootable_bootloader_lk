@@ -33,14 +33,28 @@
 #include <platform.h>
 #include <uart_dm.h>
 #include <mmc.h>
+#include <platform/gpio.h>
 #include <spmi.h>
 #include <board.h>
 #include <smem.h>
 #include <baseband.h>
+#include <dev/keys.h>
 #include <pm8x41.h>
+#include <crypto5_wrapper.h>
 
-#define PMIC_ARB_CHANNEL_NUM    0
-#define PMIC_ARB_OWNER_ID       0
+extern  bool target_use_signed_kernel(void);
+
+#define PMIC_ARB_CHANNEL_NUM               0
+#define PMIC_ARB_OWNER_ID                  0
+
+#define CRYPTO_ENGINE_INSTANCE             1
+#define CRYPTO_ENGINE_EE                   1
+#define CRYPTO_ENGINE_FIFO_SIZE            64
+#define CRYPTO_ENGINE_READ_PIPE            3
+#define CRYPTO_ENGINE_WRITE_PIPE           2
+#define CRYPTO_ENGINE_CMD_ARRAY_SIZE       20
+
+#define TLMM_VOL_UP_BTN_GPIO    106
 
 static uint32_t mmc_sdc_base[] =
 	{ MSM_SDC1_BASE, MSM_SDC2_BASE, MSM_SDC3_BASE };
@@ -52,8 +66,61 @@ void target_early_init(void)
 #endif
 }
 
+/* Return 1 if vol_up pressed */
+static int target_volume_up()
+{
+	uint8_t status = 0;
+
+	gpio_tlmm_config(TLMM_VOL_UP_BTN_GPIO, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA, GPIO_ENABLE);
+
+	thread_sleep(10);
+
+	/* Get status of GPIO */
+	status = gpio_status(TLMM_VOL_UP_BTN_GPIO);
+
+	/* Active low signal. */
+	return !status;
+}
+
+/* Return 1 if vol_down pressed */
+uint32_t target_volume_down()
+{
+	/* Volume down button tied in with PMIC RESIN. */
+	return pm8x41_resin_status();
+}
+
 static void target_keystatus()
 {
+	keys_init();
+
+	if(target_volume_down())
+		keys_post_event(KEY_VOLUMEDOWN, 1);
+
+	if(target_volume_up())
+		keys_post_event(KEY_VOLUMEUP, 1);
+}
+
+/* Set up params for h/w CRYPTO_ENGINE. */
+void target_crypto_init_params()
+{
+	struct crypto_init_params ce_params;
+
+	/* Set up base addresses and instance. */
+	ce_params.crypto_instance  = CRYPTO_ENGINE_INSTANCE;
+	ce_params.crypto_base      = MSM_CE1_BASE;
+	ce_params.bam_base         = MSM_CE1_BAM_BASE;
+
+	/* Set up BAM config. */
+	ce_params.bam_ee           = CRYPTO_ENGINE_EE;
+	ce_params.pipes.read_pipe  = CRYPTO_ENGINE_READ_PIPE;
+	ce_params.pipes.write_pipe = CRYPTO_ENGINE_WRITE_PIPE;
+
+	/* Assign buffer sizes. */
+	ce_params.num_ce           = CRYPTO_ENGINE_CMD_ARRAY_SIZE;
+	ce_params.read_fifo_size   = CRYPTO_ENGINE_FIFO_SIZE;
+	ce_params.write_fifo_size  = CRYPTO_ENGINE_FIFO_SIZE;
+
+	crypto_init_params(&ce_params);
 }
 
 void target_init(void)
@@ -81,6 +148,9 @@ void target_init(void)
 			ASSERT(0);
 		}
 	}
+
+	if (target_use_signed_kernel())
+		target_crypto_init_params();
 }
 
 /* Do any target specific intialization needed before entering fastboot mode */
@@ -139,6 +209,37 @@ void target_serialno(unsigned char *buf)
 		serialno = mmc_get_psn();
 		snprintf((char *)buf, 13, "%x", serialno);
 	}
+}
+
+unsigned check_reboot_mode(void)
+{
+	uint32_t restart_reason = 0;
+
+	/* Read reboot reason and scrub it */
+	restart_reason = readl(RESTART_REASON_ADDR);
+	writel(0x00, RESTART_REASON_ADDR);
+
+	return restart_reason;
+}
+
+void reboot_device(unsigned reboot_reason)
+{
+	writel(reboot_reason, RESTART_REASON_ADDR);
+
+	/* Configure PMIC for warm reset */
+	pm8x41_reset_configure(PON_PSHOLD_WARM_RESET);
+
+	/* Drop PS_HOLD for MSM */
+	writel(0x00, MPM2_MPM_PS_HOLD);
+
+	mdelay(5000);
+
+	dprintf(CRITICAL, "Rebooting failed\n");
+}
+
+crypto_engine_type board_ce_type(void)
+{
+	return CRYPTO_ENGINE_TYPE_HW;
 }
 
 unsigned board_machtype(void)
