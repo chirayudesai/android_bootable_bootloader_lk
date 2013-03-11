@@ -41,6 +41,7 @@
 #include <dev/keys.h>
 #include <pm8x41.h>
 #include <crypto5_wrapper.h>
+#include <hsusb.h>
 
 extern  bool target_use_signed_kernel(void);
 
@@ -244,4 +245,49 @@ crypto_engine_type board_ce_type(void)
 
 unsigned board_machtype(void)
 {
+	return 0;
+}
+
+void target_usb_stop(void)
+{
+	/* Disable VBUS mimicing in the controller. */
+	ulpi_write(ULPI_MISC_A_VBUSVLDEXTSEL | ULPI_MISC_A_VBUSVLDEXT, ULPI_MISC_A_CLEAR);
+}
+
+void target_usb_init(void)
+{
+	uint32_t val;
+
+	/* Select and enable external configuration with USB PHY */
+	ulpi_write(ULPI_MISC_A_VBUSVLDEXTSEL | ULPI_MISC_A_VBUSVLDEXT, ULPI_MISC_A_SET);
+
+	/* This delay is required for usb enumeration in
+	 * fastboot when the target is rebooted
+	 * with usb connected.
+	 */
+	mdelay(70);
+
+	/* Enable sess_vld */
+	val = readl(USB_GENCONFIG_2) | GEN2_SESS_VLD_CTRL_EN;
+	writel(val, USB_GENCONFIG_2);
+
+	/* Enable external vbus configuration in the LINK */
+	val = readl(USB_USBCMD);
+	val |= SESS_VLD_CTRL;
+	writel(val, USB_USBCMD);
+}
+
+unsigned target_pause_for_battery_charge(void)
+{
+	uint8_t pon_reason = pm8x41_get_pon_reason();
+
+	/* This function will always return 0 to facilitate
+	 * automated testing/reboot with usb connected.
+	 * uncomment if this feature is needed.
+	 */
+	/* if ((pon_reason == USB_CHG) || (pon_reason == DC_CHG))
+	 *	return 1;
+	 */
+
+	return 0;
 }

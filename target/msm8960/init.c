@@ -314,7 +314,7 @@ void target_uart_init(void)
 	case LINUX_MACHTYPE_8960_APQ:
 	case LINUX_MACHTYPE_8960_LIQUID:
 
-		if(board_baseband() == BASEBAND_SGLTE || board_is_mint)
+		if(board_baseband() == BASEBAND_SGLTE || board_baseband() == BASEBAND_SGLTE2 || board_is_mint)
 		{
 			uart_dm_init(8, 0x1A000000, 0x1A040000);
 		}
@@ -497,6 +497,8 @@ void target_baseband_detect(struct board_data *board)
 		baseband = BASEBAND_DSDA;
 	else if (platform_subtype == HW_PLATFORM_SUBTYPE_DSDA2)
 		baseband = BASEBAND_DSDA2;
+	else if (platform_subtype == HW_PLATFORM_SUBTYPE_SGLTE2)
+		baseband = BASEBAND_SGLTE2;
 	else {
 		switch(platform) {
 		case APQ8060:

@@ -105,6 +105,7 @@ static const char *baseband_mdm     = " androidboot.baseband=mdm";
 static const char *baseband_sglte   = " androidboot.baseband=sglte";
 static const char *baseband_dsda    = " androidboot.baseband=dsda";
 static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
+static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
 
 unsigned boot_into_Android2 = 0;
 unsigned boot_into_recovery2 = 0;
@@ -212,6 +213,10 @@ unsigned char *update_cmdline(const char * cmdline)
 			cmdline_len += strlen(baseband_sglte);
 			break;
 
+		case BASEBAND_SGLTE2:
+			cmdline_len += strlen(baseband_sglte2);
+			break;
+
 		case BASEBAND_DSDA:
 			cmdline_len += strlen(baseband_dsda);
 			break;
@@ -307,6 +312,12 @@ unsigned char *update_cmdline(const char * cmdline)
 
 			case BASEBAND_SGLTE:
 				src = baseband_sglte;
+				if (have_cmdline) --dst;
+				while ((*dst++ = *src++));
+				break;
+
+			case BASEBAND_SGLTE2:
+				src = baseband_sglte2;
 				if (have_cmdline) --dst;
 				while ((*dst++ = *src++));
 				break;
@@ -446,8 +457,8 @@ void boot_linux(void *kernel, unsigned *tags,
 	generate_atags(tags, final_cmdline, ramdisk, ramdisk_size);
 #endif
 
-	dprintf(INFO, "booting linux @ %p, ramdisk @ %p (%d)\n",
-		entry, ramdisk, ramdisk_size);
+	dprintf(INFO, "booting linux @ %p, ramdisk @ %p (%d), tags/device tree @ %p\n",
+		entry, ramdisk, ramdisk_size, tags_phys);
 
 	enter_critical_section();
 
